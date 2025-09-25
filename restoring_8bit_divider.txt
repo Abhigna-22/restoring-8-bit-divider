@@ -1,0 +1,57 @@
+
+
+module restoring_8bit_divider(
+input [7:0]num,den,
+input clk,reset,
+output reg [7:0]quotient
+);
+reg [8:0]A;
+reg [2:0]count;
+reg [7:0]N;
+reg [8:0]M;
+
+wire [8:0] m_value, A_shift, sub_value, restore; //MSB will indicate the sign
+wire [7:0]N_value;
+wire [2:0]count_3bit;
+wire [8:0]A_value;
+
+assign m_value={1'b0,den};
+assign A_shift={A[6:0],N[7]}; //this will concatinate the shifted accumalator walue with the MSB of the numberator
+assign sub_value=A-M;
+assign restore=A_shift;
+assign N_value={N[6:0],~sub_value[8]};
+assign count_3bit=count-1;
+assign A_value=sub_value[8]?restore:sub_value;
+
+
+always@(posedge clk)begin
+    if(reset)begin
+        A<=9'b0;           //A-000000000
+        count<=3'b111;
+        N<=num;         //N will store the value of numerator
+        M<=m_value;     //M will store the value of {0,denominator}
+        quotient<=0;    //quotient=0
+    end
+    else if (M==0)begin
+        quotient<=8'bx;
+        count<=0;
+    end
+    
+    else if (count>0)begin
+        A<=sub_value[8]?restore:sub_value;
+        N<=N_value;
+        count<=count_3bit;
+        //THE algo goes like this- load the value-of NUMERATOR MSB INTO THE LSB OF A
+        A<=(A<<1)|({7'b0,N[7]}); //at clk 1 A is left shifted by 1 and is or'ed with 0000000N[0]
+        A<=sub_value;// you need to subtract the A value with M and check the MSB-if its equal to true or it is equal to 0
+        // if A[8]is equal to 1 then restore the else assign the same value 
+        //Assign the N value to N depending on the upon the MSB of sub_value
+        N<=(N<<1)|{6'b0,~sub_value[8]};
+        
+    end 
+    
+    else if(count==0)begin
+    quotient<=N;
+    end
+end
+endmodule
